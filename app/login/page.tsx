@@ -12,7 +12,7 @@ import {
   ArrowRight,
   Sparkles,
 } from "lucide-react";
-import { useAuth } from "@/src/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);

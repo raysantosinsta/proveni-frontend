@@ -1,38 +1,16 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // app/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/src/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import {
-  User,
-  Mail,
-  Building2,
-  Briefcase,
-  LogOut,
-  Bell,
-  Boxes,
-  Factory,
-  Leaf,
-  ShieldCheck,
-  AlertTriangle,
-  Search,
-  ArrowRight,
-  Loader2,
+  Leaf, ShieldCheck, Boxes, TrendingUp,
+  FileCheck, Globe, CheckCircle, ArrowRight, Loader2,
 } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import api from "@/src/services/api";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-// Mapeamento de roles para rotas
 const roleRoutes: Record<string, string> = {
   SUPPLIER: "/supplier/documents",
   OPERATOR: "/operator/documents",
@@ -41,7 +19,6 @@ const roleRoutes: Record<string, string> = {
   ADMIN: "/admin/dashboard",
 };
 
-// Nomes amigáveis para roles
 const roleNames: Record<string, string> = {
   SUPPLIER: "Fornecedor",
   OPERATOR: "Operador",
@@ -50,535 +27,290 @@ const roleNames: Record<string, string> = {
   ADMIN: "Administrador",
 };
 
-interface Batch {
-  id: string;
-  batchId: string;
-  productName: string;
-  co2Emitted: number;
-  status: string;
-  company?: { name: string };
-  createdAt: string;
+function cn(...classes: (string | false | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
 }
 
-interface DashboardStats {
-  totalBatches: number;
-  totalCO2: number;
-  complianceScore: number;
-  totalSuppliers: number;
-  pendingDocuments: number;
-  onChainBatches: number;
-}
-
-export default function DashboardPage() {
+export default function HomePage() {
   const { user, logout, isAuthenticated, initialized } = useAuth();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [recentBatches, setRecentBatches] = useState<Batch[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalBatches: 0,
-    totalCO2: 0,
-    complianceScore: 0,
-    totalSuppliers: 0,
-    pendingDocuments: 0,
-    onChainBatches: 0,
-  });
 
   useEffect(() => {
-    if (initialized && !isAuthenticated) {
-      router.push("/login");
-    }
+    if (initialized && !isAuthenticated) router.push("/login");
   }, [initialized, isAuthenticated, router]);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!user) return;
-
-      try {
-        setLoading(true);
-        const role = user.role;
-
-        // Para MANAGER, ADMIN e SPECIALIST - buscar dados da empresa
-        if (role === "MANAGER" || role === "ADMIN" || role === "SPECIALIST") {
-          // Buscar estatísticas do dashboard da empresa
-          try {
-            const dashboardRes = await api.get("/companies/dashboard");
-            const dashboardData = dashboardRes.data;
-
-            setStats((prev) => ({
-              ...prev,
-              totalBatches: dashboardData.totalBatches || 0,
-              totalCO2: dashboardData.totalCO2 || 0,
-              complianceScore: Math.round(dashboardData.compliantRate || 0),
-              totalSuppliers: dashboardData.totalSuppliers || 0,
-            }));
-          } catch (error) {
-            console.error("Erro ao buscar dashboard stats:", error);
-          }
-
-          // Buscar lotes recentes
-          try {
-            const batchesRes = await api.get("/batches");
-            const batches = batchesRes.data || [];
-            setRecentBatches(batches.slice(0, 5));
-
-            const totalCO2FromBatches = batches.reduce(
-              (sum: number, batch: Batch) => sum + (batch.co2Emitted || 0),
-              0,
-            );
-            const onChainBatches = batches.filter(
-              (b: Batch) =>
-                b.status === "COMPLETED" ||
-                b.status === "ON_CHAIN" ||
-                b.status === "BLOCKCHAIN",
-            ).length;
-
-            setStats((prev) => ({
-              ...prev,
-              totalBatches: batches.length,
-              totalCO2: totalCO2FromBatches,
-              onChainBatches,
-              complianceScore:
-                batches.length > 0
-                  ? Math.round((onChainBatches / batches.length) * 100)
-                  : prev.complianceScore,
-            }));
-          } catch (error) {
-            console.error("Erro ao buscar lotes:", error);
-          }
-        }
-
-        // Para OPERATOR - buscar documentos pendentes
-        if (role === "OPERATOR") {
-          try {
-            const pendingDocsRes = await api.get("/documents/pending");
-            const pendingDocs = pendingDocsRes.data || [];
-            setStats((prev) => ({
-              ...prev,
-              pendingDocuments: pendingDocs.length,
-            }));
-          } catch (error) {
-            console.error("Erro ao buscar documentos pendentes:", error);
-          }
-        }
-
-        // Para SUPPLIER - buscar documentos do fornecedor
-        if (role === "SUPPLIER" && user.companyId) {
-          try {
-            const docsRes = await api.get("/documents", {
-              params: { supplierId: user.companyId },
-            });
-            const docs = docsRes.data || [];
-            const pendingDocs = docs.filter(
-              (d: any) => d.processingStatus === "PENDING",
-            );
-            setStats((prev) => ({
-              ...prev,
-              totalBatches: docs.length,
-              pendingDocuments: pendingDocs.length,
-            }));
-          } catch (error) {
-            console.error("Erro ao buscar documentos do fornecedor:", error);
-          }
-        }
-      } catch (error) {
-        console.error("Erro ao carregar dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isAuthenticated && user) {
-      fetchDashboardData();
-    }
-  }, [isAuthenticated, user]);
-
-  if (!initialized || loading) {
+  if (!initialized || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#134B8A" }} />
       </div>
     );
   }
 
   const handleGoToModule = () => {
-    if (user?.role && roleRoutes[user.role]) {
-      router.push(roleRoutes[user.role]);
-    } else {
-      router.push("/");
-    }
-  };
-
-  const getRoleBadgeColor = (role: string) => {
-    const colors: Record<string, string> = {
-      SUPPLIER: "bg-emerald-100 text-emerald-800",
-      OPERATOR: "bg-blue-100 text-blue-800",
-      SPECIALIST: "bg-purple-100 text-purple-800",
-      MANAGER: "bg-amber-100 text-amber-800",
-      ADMIN: "bg-red-100 text-red-800",
-    };
-    return colors[role] || "bg-gray-100 text-gray-800";
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      DRAFT: "bg-gray-100 text-gray-600",
-      PROCESSING: "bg-blue-100 text-blue-600",
-      AWAITING_REVIEW: "bg-yellow-100 text-yellow-600",
-      VALIDATED: "bg-green-100 text-green-600",
-      REJECTED: "bg-red-100 text-red-600",
-      COMPLETED: "bg-emerald-100 text-emerald-600",
-      ON_CHAIN: "bg-purple-100 text-purple-600",
-      BLOCKCHAIN: "bg-indigo-100 text-indigo-600",
-      ERROR: "bg-red-100 text-red-600",
-    };
-    return colors[status] || "bg-gray-100 text-gray-600";
+    router.push(user?.role && roleRoutes[user.role] ? roleRoutes[user.role] : "/");
   };
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* HEADER */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+    <>
+      <style jsx global>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes blob {
+          0%   { transform: translate(0px, 0px) scale(1); }
+          33%  { transform: translate(30px, -50px) scale(1.1); }
+          66%  { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-fade-up  { animation: fadeUp 0.6s ease-out forwards; opacity: 0; }
+        .animate-blob     { animation: blob 7s infinite; }
+        .animation-delay-100  { animation-delay: 100ms; }
+        .animation-delay-200  { animation-delay: 220ms; }
+        .animation-delay-300  { animation-delay: 340ms; }
+        .animation-delay-2000 { animation-delay: 2000ms; }
+        .animation-delay-4000 { animation-delay: 4000ms; }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-fade-up, .animate-blob { animation: none; opacity: 1; }
+        }
+      `}</style>
+
+      <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
+
+        {/* ── Orbs decorativos ── */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div
+            className="absolute -top-40 -right-40 w-80 h-80 rounded-full animate-blob"
+            style={{ backgroundColor: "#0A2540", mixBlendMode: "multiply", filter: "blur(60px)", opacity: 0.15 }}
+          />
+          <div
+            className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full animate-blob animation-delay-2000"
+            style={{ backgroundColor: "#1E6B6B", mixBlendMode: "multiply", filter: "blur(60px)", opacity: 0.15 }}
+          />
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full animate-blob animation-delay-4000"
+            style={{ backgroundColor: "#7C3AED", mixBlendMode: "multiply", filter: "blur(60px)", opacity: 0.12 }}
+          />
+        </div>
+
+        {/* ── Header glassmorphism ── */}
+        <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg">
+              <div className="p-2 rounded-xl shadow-md" style={{ background: "linear-gradient(135deg, #0A2540, #1E6B6B)" }}>
                 <Leaf className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">
-                  CarbonChain ESG
-                </h1>
-                <p className="text-xs text-gray-500">
-                  Monitoramento de carbono e blockchain
-                </p>
+                <p className="text-base font-semibold text-slate-800">CarbonChain ESG</p>
+                <p className="text-xs text-slate-500">Rastreabilidade de Carbono com Blockchain</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="relative hidden md:block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Pesquisar..."
-                  className="w-72 bg-gray-50 pl-10 border-gray-200"
-                />
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-medium text-slate-700">{user.name}</p>
+                <p className="text-xs text-slate-500">{roleNames[user.role] || user.role}</p>
               </div>
-
-              <Button variant="outline" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                {stats.pendingDocuments > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
-                    {stats.pendingDocuments > 9 ? "9+" : stats.pendingDocuments}
-                  </span>
-                )}
-              </Button>
-
-              <Avatar>
-                <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+              <Avatar className="h-9 w-9">
+                <AvatarFallback style={{ background: "linear-gradient(135deg, #0A2540, #1E6B6B)" }} className="text-white text-xs font-medium">
                   {user.name.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-
               <button
                 onClick={logout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                style={{ color: "#DC2626" }}
+                aria-label="Sair do sistema"
               >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Sair</span>
+                Sair
               </button>
             </div>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Saudação e Perfil */}
-        <div className="mb-8 flex flex-wrap justify-between items-start gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Olá, {user.name.split(" ")[0]}! 👋
-            </h2>
-            <p className="text-gray-600">
-              Bem-vindo de volta ao seu painel de controle
-            </p>
-          </div>
+        {/* ── Conteúdo principal ── */}
+        <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
 
-          <div className="flex items-center gap-3">
-            <Badge
-              className={cn(
-                "px-4 py-2 text-sm font-semibold",
-                getRoleBadgeColor(user.role),
-              )}
+          {/* Hero */}
+          <section className="text-center mb-16 animate-fade-up" aria-label="Apresentação">
+            <div
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-6"
+              style={{ backgroundColor: "#EDE9FE", color: "#7C3AED" }}
             >
-              {roleNames[user.role] || user.role}
-            </Badge>
+              <Leaf className="w-4 h-4" aria-hidden="true" />
+              Blockchain para Sustentabilidade
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-5 leading-tight">
+              Gestão de Carbono com{" "}
+              <span style={{ background: "linear-gradient(135deg, #0A2540, #1E6B6B)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                Rastreabilidade Imutável
+              </span>
+            </h1>
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto mb-8 leading-relaxed">
+              O CarbonChain ESG conecta empresas, fornecedores e especialistas para garantir
+              transparência das emissões de carbono em toda a cadeia produtiva.
+            </p>
             <Button
               onClick={handleGoToModule}
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+              className="relative overflow-hidden group text-white text-base px-8 py-6 rounded-xl shadow-lg
+                         transition-all duration-300 hover:shadow-xl hover:scale-[1.02]
+                         focus:ring-2 focus:ring-offset-2 focus:outline-none"
+              style={{ background: "linear-gradient(135deg, #0A2540, #1E6B6B)" }}
             >
-              Ir para módulo principal
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <span className="relative z-10 flex items-center">
+                Acessar Meu Módulo
+                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+              </span>
+              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-0 transition-transform duration-500 bg-gradient-to-r from-white/20 to-transparent" aria-hidden="true" />
             </Button>
-          </div>
-        </div>
+          </section>
 
-        {/* Cards do Perfil do Usuário */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="rounded-xl shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <User className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Nome</p>
-                  <p className="font-medium text-gray-800 truncate">
-                    {user.name}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Mail className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">E-mail</p>
-                  <p className="font-medium text-gray-800 truncate">
-                    {user.email}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-100 rounded-lg">
-                  <Briefcase className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Perfil</p>
-                  <p className="font-medium text-gray-800">
-                    {roleNames[user.role] || user.role}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {user.companyName && (
-            <Card className="rounded-xl shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-100 rounded-lg">
-                    <Building2 className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Empresa</p>
-                    <p className="font-medium text-gray-800 truncate">
-                      {user.companyName}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* KPI CARDS */}
-        <div className="grid gap-4 md:grid-cols-4 mb-8">
-          <Card className="rounded-xl shadow-sm">
-            <CardContent className="p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">
-                    {user.role === "SUPPLIER"
-                      ? "Documentos enviados"
-                      : "Lotes monitorados"}
-                  </p>
-                  <h2 className="text-3xl font-bold text-slate-800">
-                    {stats.totalBatches}
-                  </h2>
-                </div>
-                <div className="rounded-xl bg-blue-100 p-3">
-                  <Boxes className="text-blue-600" />
-                </div>
-              </div>
-              {stats.onChainBatches > 0 && (
-                <Badge className="bg-green-100 text-green-700">
-                  {stats.onChainBatches} na blockchain
-                </Badge>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl shadow-sm">
-            <CardContent className="p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">CO₂ emitido</p>
-                  <h2 className="text-3xl font-bold text-slate-800">
-                    {stats.totalCO2.toFixed(2)} t
-                  </h2>
-                </div>
-                <div className="rounded-xl bg-red-100 p-3">
-                  <Leaf className="text-red-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl shadow-sm">
-            <CardContent className="p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">Score médio ESG</p>
-                  <h2 className="text-3xl font-bold text-slate-800">
-                    {stats.complianceScore}%
-                  </h2>
-                </div>
-                <div className="rounded-xl bg-green-100 p-3">
-                  <ShieldCheck className="text-green-600" />
-                </div>
-              </div>
-              <Progress value={stats.complianceScore} className="h-2" />
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl shadow-sm">
-            <CardContent className="p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">
-                    {user.role === "OPERATOR" || user.role === "SPECIALIST"
-                      ? "Documentos pendentes"
-                      : user.role === "SUPPLIER"
-                        ? "Em processamento"
-                        : "Fornecedores ativos"}
-                  </p>
-                  <h2 className="text-3xl font-bold text-slate-800">
-                    {user.role === "OPERATOR" || user.role === "SPECIALIST"
-                      ? stats.pendingDocuments
-                      : user.role === "SUPPLIER"
-                        ? stats.pendingDocuments
-                        : stats.totalSuppliers}
-                  </h2>
-                </div>
-                <div className="rounded-xl bg-yellow-100 p-3">
-                  <AlertTriangle className="text-yellow-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* TABELA DE LOTES RECENTES */}
-        {(user.role === "MANAGER" ||
-          user.role === "ADMIN" ||
-          user.role === "SPECIALIST") && (
-          <Card className="rounded-xl shadow-sm">
-            <CardContent className="p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-800">
-                  Últimos lotes
-                </h3>
-                <Button variant="outline" onClick={handleGoToModule}>
-                  Ver todos
-                </Button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-slate-500">
-                      <th className="pb-3 font-medium">Lote</th>
-                      <th className="pb-3 font-medium">Produto</th>
-                      <th className="pb-3 font-medium">CO₂ (t)</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentBatches.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          className="py-8 text-center text-gray-500"
-                        >
-                          Nenhum lote encontrado
-                        </td>
-                      </tr>
-                    ) : (
-                      recentBatches.map((batch) => (
-                        <tr
-                          key={batch.id}
-                          className="border-b transition hover:bg-slate-50"
-                        >
-                          <td className="py-4 font-medium text-slate-700">
-                            {batch.batchId}
-                          </td>
-                          <td className="py-4">{batch.productName}</td>
-                          <td className="py-4">
-                            {batch.co2Emitted?.toFixed(2) || "0"} t
-                          </td>
-                          <td className="py-4">
-                            <Badge className={getStatusColor(batch.status)}>
-                              {batch.status}
-                            </Badge>
-                          </td>
-                          <td className="py-4 text-gray-500">
-                            {format(new Date(batch.createdAt), "dd/MM/yyyy", {
-                              locale: ptBR,
-                            })}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Seção de Boas-vindas para usuários sem dados */}
-        {stats.totalBatches === 0 && stats.pendingDocuments === 0 && (
-          <Card className="rounded-xl shadow-sm mt-6">
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShieldCheck className="w-10 h-10 text-emerald-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                Bem-vindo ao CarbonChain ESG
-              </h3>
-              <p className="text-gray-500 max-w-md mx-auto">
-                Clique no botão Ir para módulo principal para começar a usar o
-                sistema.
-              </p>
-              <Button
-                onClick={handleGoToModule}
-                className="mt-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+          {/* Features */}
+          <section className="grid md:grid-cols-3 gap-8 mb-16" aria-label="Funcionalidades">
+            {[
+              { icon: <Boxes className="w-8 h-8" style={{ color: "#1E6B6B" }} />, bg: "#D4EAEA", title: "Rastreabilidade Total", desc: "Cada lote é registrado na blockchain, garantindo imutabilidade e transparência das emissões de CO₂.", delay: "animation-delay-100" },
+              { icon: <FileCheck className="w-8 h-8" style={{ color: "#134B8A" }} />, bg: "#DBEAFE", title: "Documentação Validada", desc: "Especialistas ESG validam documentos e certificados, assegurando conformidade ambiental.", delay: "animation-delay-200" },
+              { icon: <ShieldCheck className="w-8 h-8" style={{ color: "#7C3AED" }} />, bg: "#EDE9FE", title: "Pontuação ESG", desc: "Avaliação contínua da performance ambiental com métricas claras e comparáveis.", delay: "animation-delay-300" },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className={cn("bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 animate-fade-up", f.delay)}
               >
-                Acessar Módulo Principal
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ backgroundColor: f.bg }}>
+                  {f.icon}
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-3">{f.title}</h3>
+                <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </section>
+
+          {/* Como funciona */}
+          <section
+            className="rounded-2xl p-8 mb-16 border border-slate-100 shadow-md animate-fade-up animation-delay-100 transition-all duration-300 hover:shadow-xl"
+            style={{ background: "rgba(255,255,255,0.70)", backdropFilter: "blur(8px)" }}
+            aria-label="Como funciona"
+          >
+            <h2 className="text-2xl font-bold text-slate-800 text-center mb-10">Como funciona o sistema</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {[
+                { n: 1, title: "Fornecedor", desc: "Cadastra documentos e lotes", bg: "#D4EAEA", color: "#0D3B4C" },
+                { n: 2, title: "Validação",  desc: "Especialistas revisam",       bg: "#DBEAFE", color: "#0C447C" },
+                { n: 3, title: "Blockchain", desc: "Registro imutável",           bg: "#EDE9FE", color: "#3C3489" },
+                { n: 4, title: "Dashboard",  desc: "Métricas e relatórios",       bg: "#D4EAEA", color: "#0D3B4C" },
+              ].map((s) => (
+                <div key={s.n} className="text-center group">
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 font-bold text-lg transition-transform duration-300 group-hover:scale-110"
+                    style={{ backgroundColor: s.bg, color: s.color }}
+                  >
+                    {s.n}
+                  </div>
+                  <p className="font-medium text-slate-800 text-sm">{s.title}</p>
+                  <p className="text-xs text-slate-500 mt-1">{s.desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Cards por Perfil */}
+          <section aria-label="Perfis de acesso">
+            <h2 className="text-2xl font-bold text-slate-800 text-center mb-8 animate-fade-up">
+              Para cada perfil, uma experiência personalizada
+            </h2>
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
+
+              {/* Fornecedor */}
+              <div className={cn(
+                "rounded-xl p-6 border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 animate-fade-up animation-delay-100",
+                "bg-gradient-to-br from-white to-[#F0FAF8]",
+                user.role === "SUPPLIER" ? "border-[#134B8A] ring-2 ring-[#134B8A] shadow-lg" : "border-[#D4EAEA]"
+              )}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: "#D4EAEA" }}>
+                    <Boxes className="w-5 h-5" style={{ color: "#1E6B6B" }} aria-hidden="true" />
+                  </div>
+                  <h3 className="font-semibold text-slate-800">Fornecedor</h3>
+                  {user.role === "SUPPLIER" && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: "#134B8A" }}>Seu perfil</span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-600 mb-3 leading-relaxed">Cadastre seus documentos e lotes de produção. Acompanhe o status das validações.</p>
+                <ul className="space-y-2 text-sm text-slate-500">
+                  {["Envio de documentos", "Registro de lotes", "Acompanhamento ESG"].map((t) => (
+                    <li key={t} className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: "#059669" }} aria-hidden="true" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Operador / Especialista */}
+              <div className={cn(
+                "rounded-xl p-6 border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 animate-fade-up animation-delay-200",
+                "bg-gradient-to-br from-white to-[#EFF6FF]",
+                (user.role === "OPERATOR" || user.role === "SPECIALIST") ? "border-[#134B8A] ring-2 ring-[#134B8A] shadow-lg" : "border-[#BFDBFE]"
+              )}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: "#DBEAFE" }}>
+                    <FileCheck className="w-5 h-5" style={{ color: "#134B8A" }} aria-hidden="true" />
+                  </div>
+                  <h3 className="font-semibold text-slate-800">Operador / Especialista</h3>
+                  {(user.role === "OPERATOR" || user.role === "SPECIALIST") && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: "#134B8A" }}>Seu perfil</span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-600 mb-3 leading-relaxed">Valide documentos, analise conformidade ESG e gerencie a rastreabilidade.</p>
+                <ul className="space-y-2 text-sm text-slate-500">
+                  {["Análise de documentos", "Validação ESG", "Aprovação de lotes"].map((t) => (
+                    <li key={t} className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: "#134B8A" }} aria-hidden="true" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Gestor / Admin */}
+              <div className={cn(
+                "rounded-xl p-6 border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 animate-fade-up animation-delay-300",
+                "bg-gradient-to-br from-white to-[#F5F3FF]",
+                (user.role === "MANAGER" || user.role === "ADMIN") ? "border-[#134B8A] ring-2 ring-[#134B8A] shadow-lg" : "border-[#DDD6FE]"
+              )}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: "#EDE9FE" }}>
+                    <TrendingUp className="w-5 h-5" style={{ color: "#7C3AED" }} aria-hidden="true" />
+                  </div>
+                  <h3 className="font-semibold text-slate-800">Gestor / Administrador</h3>
+                  {(user.role === "MANAGER" || user.role === "ADMIN") && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: "#134B8A" }}>Seu perfil</span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-600 mb-3 leading-relaxed">Acompanhe métricas consolidadas, relatórios e performance geral da operação.</p>
+                <ul className="space-y-2 text-sm text-slate-500">
+                  {["Dashboards executivos", "Relatórios de carbono", "Gestão de usuários"].map((t) => (
+                    <li key={t} className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: "#7C3AED" }} aria-hidden="true" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className="border-t border-slate-200 mt-12 pt-8 text-center animate-fade-up animation-delay-300">
+            <p className="flex items-center justify-center gap-2 text-slate-400 text-sm">
+              <Globe className="w-4 h-4" aria-hidden="true" />
+              CarbonChain ESG — Rastreabilidade de Carbono com Blockchain
+            </p>
+            <p className="text-xs text-slate-400 mt-2">© {new Date().getFullYear()} — Todos os direitos reservados</p>
+          </footer>
+        </main>
       </div>
-    </div>
+    </>
   );
 }

@@ -4,7 +4,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { authService } from "@/src/services/api";
+import { authService } from "@/services/api";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
@@ -46,7 +46,10 @@ export function useAuth() {
       // Forçar cookie no cliente também
       const token = authService.getToken();
       if (token) {
-        console.log("🍪 Salvando cookie com token:", token.substring(0, 20) + "...");
+        console.log(
+          "🍪 Salvando cookie com token:",
+          token.substring(0, 20) + "...",
+        );
         Cookies.set("access_token", token, { expires: 7, path: "/" });
         Cookies.set("user_role", result.user.role, { expires: 7, path: "/" });
       }
@@ -57,7 +60,7 @@ export function useAuth() {
 
       if (role === "SPECIALIST") {
         console.log("➡️ Redirecionando especialista para: /");
-        router.push("/");
+        router.push("/specialist/documents");
       } else if (role === "ADMIN" || role === "MANAGER") {
         console.log("➡️ Redirecionando admin/manager para: /");
         router.push("/");

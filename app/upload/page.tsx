@@ -1,11 +1,8 @@
 /* eslint-disable react-hooks/preserve-manual-memoization */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/app/supplier/documents/page.tsx
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/src/hooks/useAuth";
-import api from "@/src/services/api";
 import {
   AlertCircle,
   Building2,
@@ -13,23 +10,17 @@ import {
   CloudUpload,
   FileText,
   Package,
-  X,
   Shield,
-  Database,
-  Lock,
-  ArrowRight,
-  Loader2,
-  Info,
-  History,
   Eye,
   Clock,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
+  Loader2,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import api from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 
 interface UploadedFile {
   id: string;
@@ -55,7 +46,6 @@ interface SubmittedDocument {
   };
 }
 
-// ACCEPTED_TYPES
 const ACCEPTED_TYPES = {
   "application/pdf": "PDF",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
@@ -69,48 +59,58 @@ const ACCEPTED_TYPES = {
 const UNIQUE_FILE_TYPES = Array.from(new Set(Object.values(ACCEPTED_TYPES)));
 
 const getStatusConfig = (status: string) => {
-  const statusMap: Record<string, { label: string; color: string; icon: any }> =
-    {
-      PENDING: {
-        label: "Aguardando",
-        color: "bg-yellow-100 text-yellow-800",
-        icon: Clock,
-      },
-      PROCESSING: {
-        label: "Processando",
-        color: "bg-blue-100 text-blue-800",
-        icon: Loader2,
-      },
-      EXTRACTED: {
-        label: "Dados Extraídos",
-        color: "bg-indigo-100 text-indigo-800",
-        icon: CheckCircle,
-      },
-      VALIDATED: {
-        label: "Validado",
-        color: "bg-green-100 text-green-800",
-        icon: CheckCircle,
-      },
-      ON_CHAIN: {
-        label: "Na Blockchain",
-        color: "bg-emerald-100 text-emerald-800",
-        icon: CheckCircle2,
-      },
-      REJECTED: {
-        label: "Rejeitado",
-        color: "bg-red-100 text-red-800",
-        icon: XCircle,
-      },
-      NEEDS_REVIEW: {
-        label: "Necessita Revisão",
-        color: "bg-orange-100 text-orange-800",
-        icon: AlertCircle,
-      },
-    };
+  const statusMap: Record<
+    string,
+    { label: string; color: string; bg: string; icon: any }
+  > = {
+    PENDING: {
+      label: "Aguardando",
+      color: "text-yellow-700",
+      bg: "bg-yellow-50",
+      icon: Clock,
+    },
+    PROCESSING: {
+      label: "Processando",
+      color: "text-blue-700",
+      bg: "bg-blue-50",
+      icon: Loader2,
+    },
+    EXTRACTED: {
+      label: "Dados Extraídos",
+      color: "text-indigo-700",
+      bg: "bg-indigo-50",
+      icon: CheckCircle2,
+    },
+    VALIDATED: {
+      label: "Validado",
+      color: "text-green-700",
+      bg: "bg-green-50",
+      icon: CheckCircle2,
+    },
+    ON_CHAIN: {
+      label: "Na Blockchain",
+      color: "text-emerald-700",
+      bg: "bg-emerald-50",
+      icon: Shield,
+    },
+    REJECTED: {
+      label: "Rejeitado",
+      color: "text-red-700",
+      bg: "bg-red-50",
+      icon: X,
+    },
+    NEEDS_REVIEW: {
+      label: "Necessita Revisão",
+      color: "text-orange-700",
+      bg: "bg-orange-50",
+      icon: AlertCircle,
+    },
+  };
   return (
     statusMap[status] || {
       label: status,
-      color: "bg-gray-100 text-gray-800",
+      color: "text-gray-700",
+      bg: "bg-gray-50",
       icon: FileText,
     }
   );
@@ -130,10 +130,8 @@ export default function SupplierDocumentsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ✅ Função para buscar documentos
   const fetchSubmittedDocuments = useCallback(async () => {
     if (!user?.companyId) return;
-
     setLoadingDocs(true);
     try {
       const response = await api.get("/documents", {
@@ -148,49 +146,18 @@ export default function SupplierDocumentsPage() {
   }, [user?.companyId]);
 
   useEffect(() => {
-    const abortController = new AbortController();
-
-    const loadDocuments = async () => {
-      if (!user?.companyId) return;
-
-      setLoadingDocs(true);
-      try {
-        const response = await api.get("/documents", {
-          params: { supplierId: user.companyId },
-          signal: abortController.signal,
-        });
-        if (!abortController.signal.aborted) {
-          setSubmittedDocuments(response.data);
-        }
-      } catch (error: any) {
-        if (error.name !== "CanceledError" && error.name !== "AbortError") {
-          console.error("Erro ao buscar documentos:", error);
-        }
-      } finally {
-        if (!abortController.signal.aborted) {
-          setLoadingDocs(false);
-        }
-      }
-    };
-
-    loadDocuments();
-
-    return () => abortController.abort();
-  }, [user?.companyId]);
+    fetchSubmittedDocuments();
+  }, [fetchSubmittedDocuments]);
 
   const handleUpload = async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("docType", docType);
-
-    if (user?.companyId) {
-      formData.append("supplierId", user.companyId);
-    }
+    if (user?.companyId) formData.append("supplierId", user.companyId);
 
     const response = await api.post("/documents/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-
     return response.data;
   };
 
@@ -219,11 +186,11 @@ export default function SupplierDocumentsPage() {
             setFiles((prev) =>
               prev.map((f) =>
                 f.id === fileObj.id
-                  ? { ...f, progress: Math.min(f.progress + 10, 90) }
+                  ? { ...f, progress: Math.min(f.progress + 12, 92) }
                   : f,
               ),
             );
-          }, 200);
+          }, 180);
 
           const result = await handleUpload(file);
           clearInterval(interval);
@@ -249,34 +216,22 @@ export default function SupplierDocumentsPage() {
               f.id === fileObj.id ? { ...f, status: "error", progress: 0 } : f,
             ),
           );
-
-          setTimeout(() => {
-            setFiles((prev) => prev.filter((f) => f.id !== fileObj.id));
-          }, 3000);
         }
       }
 
       setUploading(false);
 
-      // Verificar se todos os arquivos foram enviados com sucesso
       setTimeout(() => {
-        setFiles((currentFiles) => {
-          const allSuccess = currentFiles.every((f) => f.status === "done");
-          if (allSuccess && currentFiles.length > 0) {
-            setUploadSuccess(true);
-            setTimeout(() => setUploadSuccess(false), 5000);
-            // Recarregar lista de documentos
-            fetchSubmittedDocuments();
-            // Limpar arquivos da lista após 2 segundos
-            setTimeout(() => {
-              setFiles([]);
-            }, 2000);
-          }
-          return currentFiles;
-        });
-      }, 500);
+        const allSuccess = files.every((f) => f.status === "done");
+        if (allSuccess && files.length > 0) {
+          setUploadSuccess(true);
+          setTimeout(() => setUploadSuccess(false), 4000);
+          fetchSubmittedDocuments();
+          setTimeout(() => setFiles([]), 2500);
+        }
+      }, 600);
     },
-    [docType, fetchSubmittedDocuments],
+    [docType, user?.companyId, fetchSubmittedDocuments],
   );
 
   const onDrop = useCallback(
@@ -292,398 +247,409 @@ export default function SupplierDocumentsPage() {
     setFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
-  const successCount = files.filter((f) => f.status === "done").length;
-  const errorCount = files.filter((f) => f.status === "error").length;
-
-  const getDocTypeLabel = (type: string) => {
-    const types: Record<string, string> = {
-      INVOICE: "Nota Fiscal",
-      CARBON_REPORT: "Relatório de Carbono",
-      CERTIFICATE: "Certificado",
-      TRANSPORT: "Conhecimento de Transporte",
-      OTHER: "Outros",
-    };
-    return types[type] || type;
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg">
-                  <Shield className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">
-                  Upload Seguro
-                </span>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-800">
-                Envio de Documentos
-              </h1>
-              <p className="text-gray-500 text-sm mt-1">
-                Seus documentos serão processados e associados a um lote
-              </p>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-xl">
-              <Building2 className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">
-                {user?.companyName || "Fornecedor"}
-              </span>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden relative">
+      {/* Gradient Orbs Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div
+          className="absolute -left-40 top-20 w-96 h-96 rounded-full animate-blob mix-blend-multiply filter blur-3xl opacity-20"
+          style={{ backgroundColor: "#0A2540" }}
+        />
+        <div
+          className="absolute -right-40 bottom-40 w-[28rem] h-[28rem] rounded-full animate-blob animation-delay-200 mix-blend-multiply filter blur-3xl opacity-20"
+          style={{ backgroundColor: "#1E6B6B" }}
+        />
+        <div
+          className="absolute left-1/3 top-1/2 w-80 h-80 rounded-full animate-blob animation-delay-300 mix-blend-multiply filter blur-3xl opacity-20"
+          style={{ backgroundColor: "#7C3AED" }}
+        />
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Cards de Status */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <Package className="w-5 h-5 text-emerald-500 mb-2" />
-            <p className="text-gray-500 text-xs">Status</p>
-            <p className="text-gray-800 font-semibold">
-              Aguardando Processamento
-            </p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <Database className="w-5 h-5 text-blue-500 mb-2" />
-            <p className="text-gray-500 text-xs">Documentos Enviados</p>
-            <p className="text-gray-800 font-semibold">
-              {submittedDocuments.length}
-            </p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <Lock className="w-5 h-5 text-purple-500 mb-2" />
-            <p className="text-gray-500 text-xs">Armazenamento</p>
-            <p className="text-gray-800 font-semibold text-sm">
-              IPFS + Blockchain
-            </p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <History className="w-5 h-5 text-orange-500 mb-2" />
-            <p className="text-gray-500 text-xs">Último Envio</p>
-            <p className="text-gray-800 font-semibold text-sm">
-              {submittedDocuments[0]?.uploadedAt
-                ? format(
-                    new Date(submittedDocuments[0].uploadedAt),
-                    "dd/MM/yyyy",
-                  )
-                : "Nenhum"}
-            </p>
-          </div>
-        </div>
-
-        {/* Toast de Sucesso */}
-        {uploadSuccess && (
-          <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-top-5 duration-300">
-            <div className="bg-emerald-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5" />
-              <span>Documento enviado com sucesso!</span>
-            </div>
-          </div>
-        )}
-
-        {/* Mensagem de Erro */}
-        {errorMessage && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5" />
-            {errorMessage}
-          </div>
-        )}
-
-        {/* Informação sobre o Lote */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-500 mt-0.5" />
-            <div>
-              <h3 className="text-sm font-semibold text-blue-800">
-                Como funciona o processo?
-              </h3>
-              <p className="text-sm text-blue-700 mt-1">
-                1. Você envia os documentos aqui
-                <br />
-                2. O operador processa e extrai os dados
-                <br />
-                3. O especialista cria o lote e registra na blockchain
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Formulário de Upload */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Novo Documento
-            </h2>
-
-            <div className="mb-4">
-              <label className="block text-sm text-gray-700 mb-2">
-                Tipo de Documento *
-              </label>
-              <select
-                value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="INVOICE">Nota Fiscal (NF-e/XML)</option>
-                <option value="CARBON_REPORT">Relatório de Carbono</option>
-                <option value="CERTIFICATE">Certificado</option>
-                <option value="TRANSPORT">Conhecimento de Transporte</option>
-                <option value="OTHER">Outros</option>
-              </select>
-            </div>
-
-            {/* Área de Upload */}
+      {/* Glassmorphism Header */}
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div
-              onDrop={onDrop}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
+              className="p-3 rounded-2xl"
+              style={{
+                background: "linear-gradient(135deg, #134B8A, #1E6B6B)",
               }}
-              onDragLeave={() => setIsDragging(false)}
-              onClick={() => inputRef.current?.click()}
-              className={cn(
-                "relative flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-all",
-                isDragging
-                  ? "border-emerald-500 bg-emerald-50 scale-[1.02]"
-                  : "border-gray-300 bg-gray-50 hover:border-emerald-400 hover:bg-emerald-50/50",
-                uploading && "opacity-50 cursor-wait",
-              )}
             >
-              <input
-                ref={inputRef}
-                type="file"
-                multiple
-                accept=".pdf,.xlsx,.xls,.xml,.jpg,.jpeg,.png"
-                className="hidden"
-                onChange={(e) => e.target.files && handleFiles(e.target.files)}
-                disabled={uploading}
-              />
-
-              {uploading ? (
-                <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
-              ) : (
-                <CloudUpload
-                  className={cn(
-                    "w-12 h-12",
-                    isDragging ? "text-emerald-500" : "text-gray-400",
-                  )}
-                />
-              )}
-              <div className="text-center">
-                <p className="text-gray-700 font-medium">
-                  {uploading
-                    ? "Enviando arquivos..."
-                    : "Arraste e solte arquivos aqui"}
-                </p>
-                <p className="text-gray-400 text-sm mt-1">
-                  {uploading
-                    ? "Aguarde, isso pode levar alguns segundos"
-                    : "ou clique para selecionar"}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {UNIQUE_FILE_TYPES.map((type) => (
-                  <span
-                    key={type}
-                    className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600"
-                  >
-                    {type}
-                  </span>
-                ))}
-              </div>
+              <Shield className="w-6 h-6 text-white" />
             </div>
+            <div>
+              <span className="text-xs font-bold tracking-widest text-[#1E6B6B] uppercase">
+                CarbonChain ESG
+              </span>
+              <h1 className="text-3xl font-bold text-[#0A2540]">Documentos</h1>
+            </div>
+          </div>
 
-            {/* Lista de Arquivos em Upload */}
-            {files.length > 0 && (
-              <div className="mt-4">
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-gray-600 text-sm">
-                    {uploading ? "Enviando" : "Prontos"} ({successCount}/
-                    {files.length})
-                  </p>
-                  {!uploading && successCount === files.length && (
-                    <button
-                      onClick={() => setFiles([])}
-                      className="text-red-500 text-xs hover:text-red-600"
-                    >
-                      Limpar todos
-                    </button>
-                  )}
+          <div className="flex items-center gap-3 px-5 py-2.5 bg-white rounded-2xl border border-gray-200 shadow-sm">
+            <Building2 className="w-5 h-5 text-[#1E6B6B]" />
+            <span className="font-semibold text-gray-800">
+              {user?.companyName || "Fornecedor"}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-6xl mx-auto px-6 pt-12 pb-20 relative z-10">
+        {/* Hero */}
+        <div className="text-center mb-16 animate-fade-up">
+          <div className="inline-flex items-center gap-2 px-5 py-2 bg-[#EDE9FE] text-[#7C3AED] rounded-full text-sm font-bold mb-6">
+            Fornecedor • Confiança Digital
+          </div>
+          <h2 className="text-5xl font-bold text-[#0A2540] tracking-tighter mb-4">
+            Envie com segurança.
+            <br />
+            Rastreie com transparência.
+          </h2>
+          <p className="text-xl text-gray-700 max-w-2xl mx-auto">
+            Seus documentos são criptografados, processados e registrados na
+            blockchain.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Upload Card */}
+          <div className="lg:col-span-7">
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-10 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+              <div className="flex items-center gap-4 mb-8">
+                <div
+                  className="p-4 rounded-2xl"
+                  style={{ backgroundColor: "#D4EAEA" }}
+                >
+                  <CloudUpload
+                    className="w-9 h-9"
+                    style={{ color: "#1E6B6B" }}
+                  />
                 </div>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
+                <div>
+                  <h3 className="text-3xl font-bold text-[#0A2540]">
+                    Novo Envio
+                  </h3>
+                  <p className="text-gray-600 font-medium mt-1">
+                    IPFS + Blockchain • Auditável
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <label className="block text-sm font-bold text-gray-800 mb-2">
+                  Tipo de Documento
+                </label>
+                <select
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value)}
+                  className="w-full px-5 py-4 bg-white border-2 border-gray-300 rounded-2xl focus:ring-2 focus:ring-[#134B8A] focus:border-[#134B8A] text-gray-900 font-medium text-base"
+                >
+                  <option value="INVOICE">Nota Fiscal (NF-e / XML)</option>
+                  <option value="CARBON_REPORT">Relatório de Carbono</option>
+                  <option value="CERTIFICATE">Certificado</option>
+                  <option value="TRANSPORT">Conhecimento de Transporte</option>
+                  <option value="OTHER">Outros</option>
+                </select>
+              </div>
+
+              {/* Dropzone */}
+              <div
+                onDrop={onDrop}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onClick={() => inputRef.current?.click()}
+                className={cn(
+                  "relative border-2 border-dashed rounded-3xl py-20 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 group",
+                  isDragging
+                    ? "border-[#1E6B6B] bg-[#F0F9F9] scale-[1.01]"
+                    : "border-gray-300 hover:border-[#1E6B6B] hover:bg-gray-50",
+                )}
+              >
+                <input
+                  ref={inputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.xlsx,.xls,.xml,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={(e) =>
+                    e.target.files && handleFiles(e.target.files)
+                  }
+                  disabled={uploading}
+                />
+
+                {uploading ? (
+                  <Loader2
+                    className="w-20 h-20 animate-spin mb-6"
+                    style={{ color: "#1E6B6B" }}
+                  />
+                ) : (
+                  <CloudUpload
+                    className="w-20 h-20 mb-6 transition-transform group-hover:scale-110"
+                    style={{ color: "#64748B" }}
+                  />
+                )}
+
+                <p className="text-2xl font-semibold text-gray-800 mb-2 text-center">
+                  {uploading
+                    ? "Enviando para a rede..."
+                    : "Arraste ou clique para enviar"}
+                </p>
+                <p className="text-gray-600 font-medium">
+                  PDF, XML, XLSX, JPG • Até 50MB
+                </p>
+
+                <div className="flex flex-wrap gap-2 mt-8">
+                  {UNIQUE_FILE_TYPES.map((type) => (
+                    <span
+                      key={type}
+                      className="text-xs font-semibold px-4 py-1.5 bg-white border border-gray-300 rounded-full text-gray-700"
+                    >
+                      {type}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Upload List */}
+              {files.length > 0 && (
+                <div className="mt-8 space-y-3 max-h-80 overflow-y-auto pr-2">
                   {files.map((file) => (
                     <div
                       key={file.id}
-                      className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-200"
+                      className="flex items-center gap-4 bg-gray-50 rounded-2xl p-5 border border-gray-200"
                     >
-                      <FileText className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      <FileText className="w-5 h-5 text-[#1E6B6B] flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-gray-800 text-sm truncate">
+                        <p className="font-semibold text-gray-800 truncate">
                           {file.name}
                         </p>
                         {file.status === "uploading" && (
                           <>
-                            <div className="mt-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-emerald-500 rounded-full transition-all"
+                                className="h-full bg-[#1E6B6B] transition-all duration-200 rounded-full"
                                 style={{ width: `${file.progress}%` }}
                               />
                             </div>
-                            <p className="text-gray-400 text-xs mt-1">
-                              Enviando... {file.progress}%
+                            <p className="text-xs font-medium text-gray-600 mt-1">
+                              {file.progress}% enviado
                             </p>
                           </>
                         )}
                         {file.status === "done" && (
-                          <p className="text-emerald-600 text-xs flex items-center gap-1 mt-1">
-                            <CheckCircle2 className="w-3 h-3" />
-                            {files.length > 1
-                              ? "Documento enviado com sucesso"
-                              : "Enviado com sucesso"}
+                          <p className="text-emerald-700 text-sm font-semibold flex items-center gap-1 mt-1">
+                            <CheckCircle2 className="w-4 h-4" /> Enviado com
+                            sucesso
                           </p>
                         )}
                         {file.status === "error" && (
-                          <p className="text-red-500 text-xs mt-1">
-                            Erro no upload
+                          <p className="text-red-700 text-sm font-semibold mt-1">
+                            Erro ao enviar
                           </p>
                         )}
                       </div>
-                      <span className="text-gray-400 text-xs flex-shrink-0">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </span>
-                      {file.status === "done" && (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      <div className="text-xs font-medium text-gray-500">
+                        {(file.size / 1024 / 1024).toFixed(1)} MB
+                      </div>
+                      {file.status !== "uploading" && (
+                        <button
+                          onClick={() => removeFile(file.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
                       )}
-                      {file.status === "error" && (
-                        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                      )}
-                      {!uploading &&
-                        file.status !== "uploading" &&
-                        file.status !== "done" && (
-                          <button
-                            onClick={() => removeFile(file.id)}
-                            className="text-gray-400 hover:text-red-500 flex-shrink-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
                     </div>
                   ))}
                 </div>
-                {errorCount > 0 && (
-                  <p className="text-red-500 text-xs mt-2">
-                    {errorCount} arquivo(s) com erro. Tente novamente.
-                  </p>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Lista de Documentos Enviados */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">
-                Histórico de Documentos
-              </h2>
-              <button
-                onClick={fetchSubmittedDocuments}
-                disabled={loadingDocs}
-                className="text-gray-400 hover:text-emerald-500 transition-colors"
-              >
-                <RefreshCw
-                  className={cn("w-4 h-4", loadingDocs && "animate-spin")}
-                />
-              </button>
+          {/* Sidebar */}
+          <div className="lg:col-span-5 space-y-8">
+            {/* Como funciona */}
+            <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
+              <h4 className="font-bold text-xl mb-6 text-[#0A2540] flex items-center gap-3">
+                <Shield className="w-6 h-6 text-[#1E6B6B]" />
+                Como funciona
+              </h4>
+              <div className="space-y-6">
+                {[
+                  "Upload criptografado",
+                  "Extração automática de dados",
+                  "Validação humana + IA",
+                  "Registro imutável na Blockchain",
+                ].map((text, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 text-[#7C3AED]"
+                      style={{ backgroundColor: "#EDE9FE" }}
+                    >
+                      {i + 1}
+                    </div>
+                    <p className="text-gray-700 font-medium pt-0.5">{text}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {loadingDocs ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+            {/* Histórico - Últimos Envios */}
+            <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <h4 className="font-bold text-xl text-[#0A2540]">
+                  Últimos Envios
+                </h4>
+                <button
+                  onClick={fetchSubmittedDocuments}
+                  disabled={loadingDocs}
+                  className="text-gray-500 hover:text-[#1E6B6B] transition-colors"
+                >
+                  <Clock
+                    className={cn("w-5 h-5", loadingDocs && "animate-spin")}
+                  />
+                </button>
               </div>
-            ) : submittedDocuments.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">Nenhum documento enviado ainda</p>
-                <p className="text-gray-400 text-sm mt-1">
-                  Envie seus documentos através do formulário ao lado
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                {submittedDocuments.map((doc) => {
-                  const statusConfig = getStatusConfig(doc.processingStatus);
-                  const StatusIcon = statusConfig.icon;
-                  return (
-                    <div
-                      key={doc.id}
-                      className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start justify-between">
+
+              {loadingDocs ? (
+                <div className="flex justify-center py-12">
+                  <Loader2
+                    className="w-8 h-8 animate-spin"
+                    style={{ color: "#1E6B6B" }}
+                  />
+                </div>
+              ) : submittedDocuments.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 font-medium">
+                  Nenhum documento enviado ainda
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {submittedDocuments.slice(0, 4).map((doc) => {
+                    const status = getStatusConfig(doc.processingStatus);
+                    const StatusIcon = status.icon;
+
+                    return (
+                      <div
+                        key={doc.id}
+                        className="flex justify-between items-start border-b border-gray-200 pb-5 last:border-0 last:pb-0 group"
+                      >
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <FileText className="w-4 h-4 text-gray-400" />
-                            <p className="font-medium text-gray-800 text-sm truncate">
-                              {doc.originalName}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2 text-xs">
-                            <span className="px-2 py-0.5 bg-gray-200 rounded text-gray-600">
-                              {getDocTypeLabel(doc.docType)}
-                            </span>
-                            <span
-                              className={cn(
-                                "px-2 py-0.5 rounded flex items-center gap-1",
-                                statusConfig.color,
-                              )}
-                            >
-                              <StatusIcon
-                                className={cn(
-                                  "w-3 h-3",
-                                  doc.processingStatus === "PROCESSING" &&
-                                    "animate-spin",
-                                )}
-                              />
-                              {statusConfig.label}
-                            </span>
-                          </div>
-                          <p className="text-gray-400 text-xs mt-2">
-                            {format(
-                              new Date(doc.uploadedAt),
-                              "dd/MM/yyyy 'às' HH:mm",
-                              { locale: ptBR },
-                            )}
+                          <p className="font-bold text-gray-800 text-[15px] truncate pr-4 group-hover:text-[#0A2540] transition-colors">
+                            {doc.originalName}
                           </p>
-                          {doc.batch && (
-                            <p className="text-emerald-600 text-xs mt-1">
-                              Lote: {doc.batch.batchId}
+
+                          <div className="flex items-center gap-2 mt-2">
+                            <p className="text-sm font-medium text-gray-600">
+                              {format(new Date(doc.uploadedAt), "dd MMM yyyy", {
+                                locale: ptBR,
+                              })}
                             </p>
-                          )}
+                            <span className="text-gray-400">•</span>
+                            <p className="text-sm font-medium text-gray-600">
+                              {format(new Date(doc.uploadedAt), "HH:mm", {
+                                locale: ptBR,
+                              })}
+                            </p>
+                          </div>
                         </div>
-                        {doc.ipfsHash && (
-                          <a
-                            href={`https://gateway.pinata.cloud/ipfs/${doc.ipfsHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gray-400 hover:text-emerald-500"
-                            title="Ver no IPFS"
+
+                        <div className="flex flex-col items-end gap-2">
+                          {doc.ipfsHash && (
+                            <a
+                              href={`https://gateway.pinata.cloud/ipfs/${doc.ipfsHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#1E6B6B] hover:text-[#134B8A] transition-colors"
+                              title="Ver no IPFS"
+                            >
+                              <Eye className="w-5 h-5" />
+                            </a>
+                          )}
+
+                          <div
+                            className={`text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-bold ${status.color} ${status.bg}`}
                           >
-                            <Eye className="w-4 h-4" />
-                          </a>
-                        )}
+                            <StatusIcon className="w-3.5 h-3.5" />
+                            {status.label}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Toast de Sucesso */}
+      {uploadSuccess && (
+        <div className="fixed bottom-8 right-8 bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 z-50 animate-fade-up">
+          <CheckCircle2 className="w-6 h-6" />
+          <span className="font-semibold">
+            Documento(s) enviado(s) com sucesso!
+          </span>
+        </div>
+      )}
+
+      {/* Mensagem de erro */}
+      {errorMessage && (
+        <div className="fixed bottom-8 left-8 bg-red-600 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 z-50 animate-fade-up">
+          <AlertCircle className="w-6 h-6" />
+          <span className="font-semibold">{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Animações Globais */}
+      <style jsx global>{`
+        @keyframes fadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes blob {
+          0% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(50px, -70px) scale(1.2);
+          }
+          66% {
+            transform: translate(-40px, 50px) scale(0.85);
+          }
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+        }
+        .animate-fade-up {
+          animation: fadeUp 0.8s ease-out forwards;
+        }
+        .animate-blob {
+          animation: blob 18s infinite ease-in-out;
+        }
+        .animation-delay-200 {
+          animation-delay: 3s;
+        }
+        .animation-delay-300 {
+          animation-delay: 6s;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .animate-fade-up,
+          .animate-blob {
+            animation: none;
+          }
+        }
+      `}</style>
     </div>
   );
 }
