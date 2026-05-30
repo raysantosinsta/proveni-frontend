@@ -1,10 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/services/api.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import Cookies from "js-cookie";
-
-// Função para verificar se está no cliente (navegador)
-const isBrowser = typeof window !== "undefined";
 
 // Configuração básica da API
 const api = axios.create({
@@ -12,9 +9,10 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Interceptor para adicionar token automaticamente
+// Interceptor para adicionar token automaticamente (APENAS NO CLIENTE)
 api.interceptors.request.use((config: any) => {
-  if (isBrowser) {
+  // Verificar se está no navegador ANTES de acessar localStorage
+  if (typeof window !== "undefined") {
     const token = localStorage.getItem("access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -30,12 +28,12 @@ export const authService = {
       const response = await api.post("/auth/login", { email, password });
       const { access_token, user } = response.data;
 
-      if (isBrowser) {
-        // Salvar no localStorage
+      // Verificar se está no navegador
+      if (typeof window !== "undefined") {
         localStorage.setItem("access_token", access_token);
         localStorage.setItem("user", JSON.stringify(user));
 
-        // Salvar também em cookie para o middleware (expira em 7 dias)
+        // Salvar também em cookie para o middleware
         Cookies.set("access_token", access_token, { expires: 7, path: "/" });
         Cookies.set("user_role", user.role, { expires: 7, path: "/" });
       }
@@ -50,18 +48,17 @@ export const authService = {
   },
 
   logout() {
-    if (isBrowser) {
+    if (typeof window !== "undefined") {
       localStorage.removeItem("access_token");
       localStorage.removeItem("user");
 
-      // Remover cookies também
       Cookies.remove("access_token", { path: "/" });
       Cookies.remove("user_role", { path: "/" });
     }
   },
 
   getUser() {
-    if (isBrowser) {
+    if (typeof window !== "undefined") {
       const userStr = localStorage.getItem("user");
       return userStr ? JSON.parse(userStr) : null;
     }
@@ -69,14 +66,14 @@ export const authService = {
   },
 
   isAuthenticated() {
-    if (isBrowser) {
+    if (typeof window !== "undefined") {
       return !!localStorage.getItem("access_token");
     }
     return false;
   },
 
   getToken() {
-    if (isBrowser) {
+    if (typeof window !== "undefined") {
       return localStorage.getItem("access_token");
     }
     return null;

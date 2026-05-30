@@ -472,6 +472,7 @@ export default function SupplierDocumentsPage() {
           {/* Sidebar */}
           <div className="lg:col-span-5 space-y-8">
             {/* Como funciona */}
+            {/* Como funciona - TEXTO CORRIGIDO */}
             <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
               <h4 className="font-bold text-xl mb-6 text-[#0A2540] flex items-center gap-3">
                 <Shield className="w-6 h-6 text-[#1E6B6B]" />
@@ -479,10 +480,11 @@ export default function SupplierDocumentsPage() {
               </h4>
               <div className="space-y-6">
                 {[
-                  "Upload criptografado",
-                  "Extração automática de dados",
-                  "Validação humana + IA",
-                  "Registro imutável na Blockchain",
+                  "1. Upload criptografado para IPFS",
+                  "2. Extração automática de dados por IA",
+                  "3. Validação humana pelo Operador",
+                  "4. Manager cria lote final com seus documentos",
+                  "5. Especialista registra lote final na Blockchain",
                 ].map((text, i) => (
                   <div key={i} className="flex gap-4">
                     <div

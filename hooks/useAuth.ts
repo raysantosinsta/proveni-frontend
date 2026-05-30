@@ -68,8 +68,8 @@ export function useAuth() {
         console.log("➡️ Redirecionando operador para: /operator/documents");
         router.push("/operator/documents");
       } else if (role === "SUPPLIER") {
-        console.log("➡️ Redirecionando fornecedor para: /supplier/documents");
-        router.push("/supplier/documents");
+        console.log("➡️ Redirecionando fornecedor para: /upload");
+        router.push("/upload");
       } else {
         console.log("➡️ Redirecionando padrão para: /");
         router.push("/");

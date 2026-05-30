@@ -756,6 +756,30 @@ export default function OperatorDocumentsPage() {
                         </div>
                       )}
 
+                      {!selectedDoc.batch && (
+                        <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                          <div className="flex items-start gap-3">
+                            <Package className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-semibold text-blue-800">
+                                📦 Ao validar, um lote será criado
+                                automaticamente
+                              </p>
+                              <p className="text-xs text-blue-700 mt-1">
+                                ID do lote:{" "}
+                                <code className="font-mono">
+                                  {previewBatchId()}
+                                </code>
+                              </p>
+                              <p className="text-xs text-blue-600 mt-2">
+                                Este lote poderá ser usado pelo Manager para
+                                compor o produto final.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div
                         className={cn(
                           "rounded-xl p-5 border-2 transition-all duration-300",
